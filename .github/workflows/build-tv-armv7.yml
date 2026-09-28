@@ -1,0 +1,71 @@
+name: Build TV ARMv7 (debug-signed)
+
+# Compila libmediaflow-proxy.so (armeabi-v7a) desde el código de
+# MediaFlow-Proxy-Light en el tag indicado y arma el APK TV con él.
+# No depende de que exista un "release" de Light con archivos adjuntos.
+# Sin ejecutar todavía: revisar los logs de la primera corrida.
+
+on:
+  workflow_dispatch:
+    inputs:
+      proxy_ref:
+        description: "Tag o rama de MediaFlow-Proxy-Light a compilar"
+        default: "1.1.2"
+        required: true
+
+env:
+  RUST_VERSION: 1.95.0   # mismo valor que usa el workflow de Light
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app Android (este fork)
+        uses: actions/checkout@v5
+
+      - name: Checkout MediaFlow-Proxy-Light
+        uses: actions/checkout@v5
+        with:
+          repository: mhdzumair/MediaFlow-Proxy-Light
+          ref: ${{ inputs.proxy_ref }}
+          path: light
+
+      - name: Rust + target ARMv7
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: armv7-linux-androideabi
+
+      - name: Android NDK r26d
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Compilar libmediaflow-proxy.so (armeabi-v7a)
+        working-directory: light
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ABIS: armeabi-v7a
+          # El script copia el .so a app/src/main/jniLibs/armeabi-v7a/ de la app
+          ANDROID_APP_DIR: ${{ github.workspace }}
+        run: |
+          chmod +x tools/build-android.sh
+          ./tools/build-android.sh
+
+      - name: JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Armar APK TV (debug, firmado con la clave de debug)
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleTvDebug --no-daemon
+
+      - name: Subir APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-armv7-apk
+          path: app/build/outputs/apk/tv/debug/*.apk
