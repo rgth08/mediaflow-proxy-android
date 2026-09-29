@@ -8,8 +8,12 @@ name: Build TV ARMv7 (debug-signed)
 on:
   workflow_dispatch:
     inputs:
+      proxy_repo:
+        description: "Repo de Light (usuario/nombre)"
+        default: "mhdzumair/MediaFlow-Proxy-Light"
+        required: true
       proxy_ref:
-        description: "Tag o rama de MediaFlow-Proxy-Light a compilar"
+        description: "Tag o rama de Light a compilar"
         default: "1.1.2"
         required: true
 
@@ -26,7 +30,7 @@ jobs:
       - name: Checkout MediaFlow-Proxy-Light
         uses: actions/checkout@v5
         with:
-          repository: mhdzumair/MediaFlow-Proxy-Light
+          repository: ${{ inputs.proxy_repo }}
           ref: ${{ inputs.proxy_ref }}
           path: light
 
